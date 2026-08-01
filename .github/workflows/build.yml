@@ -1,0 +1,39 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Cordova
+        run: npm install -g cordova
+
+      - name: Create Cordova project
+        run: |
+          cordova create app com.exemplo.app MeuApp
+          cd app
+          cordova platform add android
+          cp -r ../www/* www/
+
+      - name: Build APK
+        run: |
+          cd app
+          cordova build android --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MeuApp-APK
+          path: app/platforms/android/app/build/outputs/apk/release/*.apk
