@@ -40,7 +40,7 @@ jobs:
         with:
           api-level: 33
           build-tools: "33.0.0"
-          components: platform-tools
+          components: platform-tools,platforms;android-33,build-tools;33.0.0,cmdline-tools;latest
 
       - name: Install Cordova CLI
         run: npm install -g cordova
