@@ -35,5 +35,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeuApp-APK
+          name: MeuApp-APK-${{ github.run_id }}
           path: app/platforms/android/app/build/outputs/apk/release/*.apk
