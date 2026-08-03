@@ -1,4 +1,4 @@
-name: Build APK
+Name: Build APK
 
 on:
   push:
@@ -10,10 +10,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -27,13 +27,18 @@ jobs:
           cordova platform add android
           cp -r ../www/* www/
 
-      - name: Build APK
+      - name: Build Debug APK
         run: |
           cd app
-          cordova build android --release
+          cordova build android --debug
+
+      - name: Prepare APK artifact
+        run: |
+          mkdir -p output
+          cp app/platforms/android/app/build/outputs/apk/debug/app-debug.apk output/Musicas-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeuApp-APK-${{ github.run_id }}
-          path: app/platforms/android/app/build/outputs/apk/release/*.apk
+          name: Musicas-debug-APK-${{ github.run_id }}
+          path: output/Musicas-debug.apk
