@@ -31,6 +31,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -42,23 +50,28 @@ jobs:
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> $GITHUB_ENV
           echo "PATH=${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}" >> $GITHUB_ENV
 
-      - name: Accept Android SDK licenses
-        run: |
-          set -e
-          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
-          if [ -x "$SDKMANAGER" ]; then
-            yes | "$SDKMANAGER" --licenses || true
-          else
-            echo "sdkmanager not found at $SDKMANAGER"
-            ls -la "$ANDROID_SDK_ROOT" || true
-          fi
-
-      - name: Debug environment versions
+      - name: Debug SDK and tool versions
         run: |
           java -version || true
           node -v || true
           npm -v || true
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --version || true
+          if [ -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "sdkmanager: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+            ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --version || true
+          else
+            echo "sdkmanager not found in ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin"
+            ls -la ${ANDROID_SDK_ROOT} || true
+          fi
+
+      - name: Accept Android SDK licenses
+        run: |
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses || true
+          else
+            echo "sdkmanager not available to accept licenses"
+            exit 1
+          fi
 
       - name: Install Cordova CLI
         run: npm install -g cordova
@@ -84,6 +97,21 @@ jobs:
         run: |
           mkdir -p app/www
           rsync -a --delete "$GITHUB_WORKSPACE/www/" app/www/
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Export Java/Gradle options
+        run: |
+          echo "JAVA_TOOL_OPTIONS=-Xmx1g -Xms512m" >> $GITHUB_ENV
+          echo "GRADLE_OPTS=-Dorg.gradle.daemon=false" >> $GITHUB_ENV
 
       - name: Ensure Gradle wrapper is executable
         run: |
@@ -128,3 +156,4 @@ jobs:
           name: Musicas-apk-${{ github.run_id }}
           path: output/*.apk
           if-no-files-found: warn
+          retention-days: 7
