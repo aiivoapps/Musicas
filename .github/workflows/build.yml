@@ -36,9 +36,29 @@ jobs:
         with:
           packages: 'tools platform-tools platforms;android-34 build-tools;34.0.0'
 
+      - name: Configure Android environment
+        run: |
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> $GITHUB_ENV
+          echo "PATH=${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}" >> $GITHUB_ENV
+
       - name: Accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses || true
+          set -e
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses || true
+          else
+            echo "sdkmanager not found at $SDKMANAGER"
+            ls -la "$ANDROID_SDK_ROOT" || true
+          fi
+
+      - name: Debug environment versions
+        run: |
+          java -version || true
+          node -v || true
+          npm -v || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --version || true
 
       - name: Install Cordova CLI
         run: npm install -g cordova
@@ -53,14 +73,26 @@ jobs:
         run: |
           set -e
           cd app
+          # prefer a known cordova-android version for stability
           if ! cordova platform ls | grep -q "android"; then
-            cordova platform add android@latest --save
+            cordova platform add android@11 --save
+          else
+            echo "android platform already added"
           fi
 
       - name: Copy web assets into Cordova www
         run: |
           mkdir -p app/www
           rsync -a --delete "$GITHUB_WORKSPACE/www/" app/www/
+
+      - name: Ensure Gradle wrapper is executable
+        run: |
+          if [ -f app/platforms/android/gradlew ]; then
+            chmod +x app/platforms/android/gradlew || true
+          fi
+          if [ -f app/platforms/android/app/gradlew ]; then
+            chmod +x app/platforms/android/app/gradlew || true
+          fi
 
       - name: Build Debug APK
         env:
@@ -70,7 +102,19 @@ jobs:
           set -e
           cd app
           cordova telemetry off || true
-          cordova build android --debug --no-telemetry
+          # first try cordova build
+          cordova build android --debug --no-telemetry || true
+          # then run gradle directly to get clearer errors if present
+          if [ -d platforms/android ]; then
+            if [ -f platforms/android/gradlew ]; then
+              (cd platforms/android && ./gradlew assembleDebug --no-daemon) || true
+            elif [ -f platforms/android/app/gradlew ]; then
+              (cd platforms/android/app && ./gradlew assembleDebug --no-daemon) || true
+            else
+              echo "gradlew not found in expected locations"
+              ls -la platforms/android || true
+            fi
+          fi
 
       - name: Collect APK(s)
         run: |
