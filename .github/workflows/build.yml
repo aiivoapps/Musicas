@@ -93,10 +93,14 @@ jobs:
             echo "android platform already added"
           fi
 
-      - name: Copy web assets into Cordova www
+      - name: Copy web assets into Cordova www (tolerant)
         run: |
           mkdir -p app/www
-          rsync -a --delete "$GITHUB_WORKSPACE/www/" app/www/
+          if [ -d "$GITHUB_WORKSPACE/www" ]; then
+            rsync -a --delete "$GITHUB_WORKSPACE/www/" app/www/
+          else
+            echo "Aviso: pasta www não encontrada em $GITHUB_WORKSPACE; pulando cópia de assets"
+          fi
 
       - name: Cache Gradle
         uses: actions/cache@v4
